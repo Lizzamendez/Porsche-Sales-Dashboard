@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Porsche Sales Dashboard</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  :root{--bg:#0d0d0d;--card:#1a1a1a;--red:#D5001C;--silver:#C0C0C0;--text:#f5f5f5;--muted:#888;--border:#2a2a2a}
+  *{box-sizing:border-box;margin:0;padding:0;font-family:'Segoe UI',Inter,system-ui,sans-serif}
+  body{background:var(--bg);color:var(--text);padding:24px;min-height:100vh}
+  header{display:flex;align-items:center;gap:16px;margin-bottom:24px;border-bottom:2px solid var(--red);padding-bottom:16px}
+  header h1{font-size:28px;letter-spacing:2px;font-weight:300}
+  header h1 span{color:var(--red);font-weight:700}
+  .filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:24px;background:var(--card);padding:16px;border-radius:8px;border:1px solid var(--border)}
+  .filters label{display:flex;flex-direction:column;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
+  .filters select{margin-top:6px;background:#000;color:var(--text);border:1px solid var(--border);padding:8px;border-radius:4px;font-size:14px}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px}
+  .kpi{background:var(--card);padding:20px;border-radius:8px;border-left:4px solid var(--red)}
+  .kpi .label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
+  .kpi .value{font-size:26px;font-weight:700;margin-top:8px}
+  .charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(400px,1fr));gap:16px}
+  .chart-card{background:var(--card);padding:20px;border-radius:8px;border:1px solid var(--border)}
+  .chart-card h3{font-size:14px;color:var(--silver);margin-bottom:12px;text-transform:uppercase;letter-spacing:1px}
+  canvas{max-width:100%}
+  footer{text-align:center;margin-top:32px;color:var(--muted);font-size:12px}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>PORSCHE <span>SALES</span></h1>
+  <span style="color:var(--muted);font-size:12px">US Market · 2024–2027</span>
+</header>
+
+<div class="filters">
+  <label>Model<select id="f-model"><option value="">All</option></select></label>
+  <label>State<select id="f-state"><option value="">All</option></select></label>
+  <label>Year<select id="f-year"><option value="">All</option></select></label>
+  <label>Payment<select id="f-pay"><option value="">All</option></select></label>
+</div>
+
+<div class="kpis">
+  <div class="kpi"><div class="label">Total Sales</div><div class="value" id="k-sales">0</div></div>
+  <div class="kpi"><div class="label">Total Revenue</div><div class="value" id="k-revenue">$0</div></div>
+  <div class="kpi"><div class="label">Avg Ticket</div><div class="value" id="k-ticket">$0</div></div>
+  <div class="kpi"><div class="label">Top Model</div><div class="value" id="k-top">-</div></div>
+</div>
+
+<div class="charts">
+  <div class="chart-card"><h3>Top Models by Revenue</h3><canvas id="c1"></canvas></div>
+  <div class="chart-card"><h3>Sales by State (Top 10)</h3><canvas id="c2"></canvas></div>
+  <div class="chart-card" style="grid-column:1/-1"><h3>Payment Mix by Price Tier</h3><canvas id="c3"></canvas></div>
+</div>
+
+<footer>Dashboard built with AI · 76 valid records from 100 raw · 24 INVALID dates excluded</footer>
+
+<script>
+const DATA = [
+  {Model:"911 Turbo S",Year:2024,Price:235000,Pay:"Wire Transfer",State:"WA"},
+  {Model:"Cayenne Coupe",Year:2023,Price:112750,Pay:"Financing",State:"TX"},
+  {Model:"Taycan 4S",Year:2024,Price:121000,Pay:"Bank Transfer",State:"CA"},
+  {Model:"Panamera 4",Year:2023,Price:104500,Pay:"Credit Card",State:"FL"},
+  {Model:"911 Carrera S",Year:2020,Price:96300,Pay:"Lease",State:"NY"},
+  {Model:"718 Boxster",Year:2021,Price:73500,Pay:"Debit Card",State:"IL"},
+  {Model:"Macan GTS",Year:2024,Price:95000,Pay:"Financing",State:"AZ"},
+  {Model:"Taycan Turbo",Year:2023,Price:153200.5,Pay:"ACH Payment",State:"TX"},
+  {Model:"Panamera Turbo S",Year:2022,Price:132000,Pay:"Cash",State:"CA"},
+  {Model:"Cayenne Turbo GT",Year:2024,Price:188000,Pay:"Crypto Payment",State:"TX"},
+  {Model:"911 Carrera Cabriolet",Year:2023,Price:127800,Pay:"Credit Card",State:"GA"},
+  {Model:"Macan",Year:2021,Price:58900,Pay:"Bank Transfer",State:"FL"},
+  {Model:"Taycan Cross Turismo",Year:2023,Price:118500,Pay:"Wire Transfer",State:"NC"},
+  {Model:"911 Targa 4S",Year:2024,Price:158750,Pay:"Lease",State:"MN"},
+  {Model:"Panamera",Year:2020,Price:72000,Pay:"Bank Transfer",State:"PA"},
+  {Model:"Macan Electric",Year:2025,Price:86500,Pay:"Wire Transfer",State:"TX"},
+  {Model:"Taycan GTS",Year:2023,Price:139000,Pay:"Financing",State:"NC"},
+  {Model:"Cayenne",Year:2021,Price:76800,Pay:"Credit Card",State:"MI"},
+  {Model:"911 Carrera GTS",Year:2022,Price:119900,Pay:"Cash",State:"IN"},
+  {Model:"Panamera 4 E-Hybrid",Year:2023,Price:109250,Pay:"Lease",State:"TX"},
+  {Model:"Macan T",Year:2022,Price:82000,Pay:"Wire Transfer",State:"FL"},
+  {Model:"Taycan Turbo S",Year:2025,Price:214000,Pay:"Crypto Payment",State:"CA"},
+  {Model:"Cayenne S",Year:2023,Price:98200,Pay:"Bank Transfer",State:"CA"},
+  {Model:"Macan",Year:2022,Price:67500,Pay:"Financing",State:"OH"},
+  {Model:"Taycan",Year:2025,Price:116900,Pay:"Wire Transfer",State:"WI"},
+  {Model:"Panamera 4S",Year:2024,Price:112000,Pay:"Cash",State:"MO"},
+  {Model:"718 Boxster",Year:2021,Price:74000,Pay:"Debit Card",State:"NE"},
+  {Model:"911 Turbo",Year:2024,Price:198300,Pay:"Wire Transfer",State:"NM"},
+  {Model:"Taycan 4S",Year:2025,Price:129000,Pay:"ACH Payment",State:"VA"},
+  {Model:"Panamera Turbo",Year:2022,Price:136000,Pay:"Credit Card",State:"CO"},
+  {Model:"Cayenne E-Hybrid",Year:2023,Price:92800,Pay:"Lease",State:"CA"},
+  {Model:"Macan T",Year:2022,Price:72400,Pay:"Cash",State:"AZ"},
+  {Model:"Taycan Turbo",Year:2025,Price:158500,Pay:"Crypto Payment",State:"GA"},
+  {Model:"718 Cayman",Year:2021,Price:69900,Pay:"Bank Transfer",State:"CA"},
+  {Model:"Panamera",Year:2020,Price:71500,Pay:"Wire Transfer",State:"OK"},
+  {Model:"Cayenne Turbo",Year:2023,Price:146800,Pay:"Credit Card",State:"KS"},
+  {Model:"Macan Electric",Year:2025,Price:89700,Pay:"Lease",State:"LA"},
+  {Model:"911 Carrera S",Year:2022,Price:104600,Pay:"Bank Transfer",State:"HI"},
+  {Model:"Cayenne",Year:2021,Price:78400,Pay:"Cash",State:"NV"},
+  {Model:"911 Dakar",Year:2024,Price:268900,Pay:"Credit Card",State:"CA"},
+  {Model:"Panamera 4",Year:2023,Price:101300,Pay:"Wire Transfer",State:"TX"},
+  {Model:"Macan S",Year:2021,Price:66750,Pay:"Cash",State:"MO"},
+  {Model:"Taycan Cross Turismo",Year:2024,Price:127900,Pay:"Lease",State:"PA"},
+  {Model:"Cayenne Turbo GT",Year:2025,Price:200000,Pay:"Wire Transfer",State:"OH"},
+  {Model:"911 Carrera Cabriolet",Year:2023,Price:132000,Pay:"Crypto Payment",State:"AK"},
+  {Model:"718 Cayman GT4 RS",Year:2024,Price:176400,Pay:"Credit Card",State:"TX"},
+  {Model:"Macan",Year:2021,Price:59000,Pay:"Financing",State:"NC"},
+  {Model:"Taycan Turbo S",Year:2025,Price:218000,Pay:"Wire Transfer",State:"NE"},
+  {Model:"911 Carrera GTS",Year:2024,Price:121750,Pay:"Credit Card",State:"AZ"},
+  {Model:"718 Boxster GTS",Year:2023,Price:91500,Pay:"Lease",State:"NV"},
+  {Model:"Panamera Turbo S",Year:2022,Price:134000,Pay:"Wire Transfer",State:"NY"},
+  {Model:"Macan GTS",Year:2024,Price:96800,Pay:"ACH Payment",State:"NC"},
+  {Model:"Taycan 4S",Year:2025,Price:131600,Pay:"Wire Transfer",State:"TX"},
+  {Model:"Cayenne E-Hybrid",Year:2023,Price:94300,Pay:"Cash",State:"WI"},
+  {Model:"911 Turbo S",Year:2025,Price:242000,Pay:"Crypto Payment",State:"TX"},
+  {Model:"718 Cayman S",Year:2022,Price:82750,Pay:"Credit Card",State:"OH"},
+  {Model:"Macan Electric",Year:2026,Price:91300,Pay:"Wire Transfer",State:"CA"},
+  {Model:"Panamera",Year:2021,Price:79900,Pay:"Financing",State:"TX"},
+  {Model:"911 Targa 4S",Year:2023,Price:156500,Pay:"Cash",State:"VA"},
+  {Model:"Taycan",Year:2025,Price:119900,Pay:"Lease",State:"AZ"},
+  {Model:"911 GT3",Year:2024,Price:224000,Pay:"Wire Transfer",State:"ID"},
+  {Model:"911 Carrera",Year:2024,Price:126900,Pay:"Credit Card",State:"FL"},
+  {Model:"Cayenne",Year:2023,Price:84500,Pay:"Bank Transfer",State:"CA"},
+  {Model:"Macan S",Year:2022,Price:69800,Pay:"Financing",State:"FL"},
+  {Model:"Panamera",Year:2021,Price:81000,Pay:"Cash",State:"TX"},
+  {Model:"718 Cayman",Year:2023,Price:78900,Pay:"Debit Card",State:"WA"},
+  {Model:"911 Turbo S",Year:2026,Price:249300,Pay:"Wire Transfer",State:"MA"},
+  {Model:"Taycan Turbo",Year:2025,Price:164000,Pay:"ACH Payment",State:"TX"},
+  {Model:"Panamera 4S",Year:2024,Price:119000,Pay:"Credit Card",State:"CA"},
+  {Model:"Cayenne E-Hybrid",Year:2023,Price:96800,Pay:"Lease",State:"NC"},
+  {Model:"Macan T",Year:2022,Price:74400,Pay:"Cash",State:"AZ"},
+  {Model:"Taycan GTS",Year:2025,Price:148500,Pay:"Crypto Payment",State:"GA"},
+  {Model:"718 Boxster",Year:2021,Price:71900,Pay:"Bank Transfer",State:"CA"},
+  {Model:"Panamera Turbo",Year:2020,Price:137500,Pay:"Wire Transfer",State:"OK"},
+  {Model:"Cayenne Turbo GT",Year:2025,Price:204800,Pay:"Credit Card",State:"KS"},
+  {Model:"911 Dakar",Year:2024,Price:271700,Pay:"Lease",State:"LA"}
+];
+
+const fmt = v => v.toLocaleString('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0});
+
+const unique = k => [...new Set(DATA.map(r=>r[k]))].sort();
+const fill = (id,key) => unique(key).forEach(v=>{
+  const o=document.createElement('option'); o.value=v; o.textContent=v;
+  document.getElementById(id).appendChild(o);
+});
+fill('f-model','Model'); fill('f-state','State');
+fill('f-year','Year'); fill('f-pay','Pay');
+
+const ctx1=document.getElementById('c1'), ctx2=document.getElementById('c2'), ctx3=document.getElementById('c3');
+let ch1,ch2,ch3;
+
+function tier(p){ return p<=100000?'Under $100k': p<=180000?'$100k–$180k':'Over $180k'; }
+
+function render(){
+  const f = {
+    m: document.getElementById('f-model').value,
+    s: document.getElementById('f-state').value,
+    y: document.getElementById('f-year').value,
+    p: document.getElementById('f-pay').value
+  };
+  const d = DATA.filter(r =>
+    (!f.m||r.Model===f.m) && (!f.s||r.State===f.s) &&
+    (!f.y||r.Year==f.y) && (!f.p||r.Pay===f.p)
+  );
+
+  const revenue = d.reduce((s,r)=>s+r.Price,0);
+  document.getElementById('k-sales').textContent = d.length;
+  document.getElementById('k-revenue').textContent = fmt(revenue);
+  document.getElementById('k-ticket').textContent = fmt(d.length?revenue/d.length:0);
+  const top = Object.entries(d.reduce((a,r)=>(a[r.Model]=(a[r.Model]||0)+1,a),{}))
+    .sort((a,b)=>b[1]-a[1])[0];
+  document.getElementById('k-top').textContent = top?top[0]:'-';
+
+  // Chart 1: Top models by revenue
+  const recModel = {};
+  d.forEach(r=>recModel[r.Model]=(recModel[r.Model]||0)+r.Price);
+  const topM = Object.entries(recModel).sort((a,b)=>b[1]-a[1]).slice(0,7);
+  if(ch1) ch1.destroy();
+  ch1 = new Chart(ctx1,{type:'bar',data:{
+    labels:topM.map(x=>x[0]),
+    datasets:[{label:'Revenue',data:topM.map(x=>x[1]),backgroundColor:'#D5001C'}]
+  },options:{indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#aaa',callback:v=>fmt(v)}},y:{ticks:{color:'#aaa'}}}}});
+
+  // Chart 2: Top states by sales
+  const salesState = {};
+  d.forEach(r=>salesState[r.State]=(salesState[r.State]||0)+1);
+  const topS = Object.entries(salesState).sort((a,b)=>b[1]-a[1]).slice(0,10);
+  if(ch2) ch2.destroy();
+  ch2 = new Chart(ctx2,{type:'bar',data:{
+    labels:topS.map(x=>x[0]),
+    datasets:[{label:'Sales',data:topS.map(x=>x[1]),backgroundColor:'#C0C0C0'}]
+  },options:{plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#aaa'}},y:{ticks:{color:'#aaa'}}}}});
+
+  // Chart 3: Payment mix by price tier
+  const tiers = ['Under $100k','$100k–$180k','Over $180k'];
+  const pays = [...new Set(DATA.map(r=>r.Pay))];
+  const matrix = {};
+  pays.forEach(p=>matrix[p]={});
+  d.forEach(r=>{ const t=tier(r.Price); matrix[r.Pay][t]=(matrix[r.Pay][t]||0)+1; });
+  const colors = ['#D5001C','#C0C0C0','#888','#fff','#555','#aaa','#666','#bbb','#444','#999'];
+  if(ch3) ch3.destroy();
+  ch3 = new Chart(ctx3,{type:'bar',data:{
+    labels:tiers,
+    datasets:pays.map((p,i)=>({label:p,data:tiers.map(t=>matrix[p][t]||0),backgroundColor:colors[i%colors.length]}))
+  },options:{scales:{x:{stacked:true,ticks:{color:'#aaa'}},y:{stacked:true,ticks:{color:'#aaa'}}},plugins:{legend:{labels:{color:'#aaa'}}}}});
+}
+
+['f-model','f-state','f-year','f-pay'].forEach(id=>document.getElementById(id).addEventListener('change',render));
+render();
+</script>
+</body>
+</html>
